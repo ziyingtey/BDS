@@ -1,0 +1,18 @@
+{
+  "generated_at_utc": "2026-04-09T17:57:40.488729+00:00",
+  "data_path": "/Users/ziying.t/Downloads/FYP/bds_ml/data/synthetic_footfall.csv",
+  "n_rows": 2000,
+  "test_size": 0.2,
+  "cv_summary": "5-fold MAE mean=4.9764, std=0.2929",
+  "metrics_holdout": {
+    "mae_minutes": 4.936351,
+    "rmse_minutes": 8.405425,
+    "r2": 0.867517,
+    "n_test": 400
+  },
+  "sklearn_pipeline": "ColumnTransformer(OneHotEncoder + numerics) -> RandomForestRegressor",
+  "references": [
+    "https://scikit-learn.org/stable/modules/cross_validation.html",
+    "https://scikit-learn.org/stable/modules/model_evaluation.html#regression-metrics"
+  ]
+}

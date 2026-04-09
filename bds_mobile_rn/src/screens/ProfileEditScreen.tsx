@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { authApi } from '../api/authApi';
-import { mockBranches } from '../data/mockData';
+import { fetchBranches } from '../api/branchApi';
 import type { RootStackParamList } from '../navigation/types';
 import { userSession } from '../state/userSession';
 
@@ -25,7 +25,22 @@ export function ProfileEditScreen({ navigation }: Props) {
   const [deletePassword, setDeletePassword] = useState('');
   const [deleting, setDeleting] = useState(false);
 
-  const branches = mockBranches();
+  const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await fetchBranches();
+        if (!cancelled) setBranches(list.map((b) => ({ id: b.id, name: b.name })));
+      } catch {
+        if (!cancelled) setBranches([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const save = () => {
     userSession.userName = name.trim() || 'Guest User';

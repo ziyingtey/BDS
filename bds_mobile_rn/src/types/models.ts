@@ -1,11 +1,18 @@
+/** Mirrors GET /api/branches (live data). */
 export type Branch = {
   id: number;
   name: string;
   crowdLevel: 'Low' | 'Moderate' | 'High';
   distanceKm: number;
-  isAvailable: boolean;
   slotCapacity: number;
   slotBooked: number;
+  waitingCount: number;
+  bookingDisabled: boolean;
+  hasAvailableSlot: boolean;
+  isOvercrowded: boolean;
+  canBook: boolean;
+  estimatedWaitMinutes: number;
+  estimateSource: string;
 };
 
 export type TimeSlot = {
@@ -15,22 +22,16 @@ export type TimeSlot = {
 };
 
 export type QueueTicket = {
+  ticketId: number;
+  branchId: number;
   branchName: string;
   serviceName: string;
   slotLabel: string;
   queueNumber: string;
 };
 
-export function branchWaitMins(b: Branch): number {
-  const base = b.crowdLevel === 'High' ? 32 : b.crowdLevel === 'Moderate' ? 18 : 10;
-  const slotPressure = Math.round((b.slotBooked / b.slotCapacity) * 12);
-  return base + slotPressure;
-}
-
-export function isOvercrowded(b: Branch): boolean {
-  return b.crowdLevel === 'High';
-}
-
-export function allSlotsFull(b: Branch): boolean {
-  return b.slotBooked >= b.slotCapacity;
+export function waitLabelFromSource(source: string): string {
+  if (source === 'sklearn') return 'ML model';
+  if (source === 'logic') return 'no queue';
+  return 'estimate';
 }

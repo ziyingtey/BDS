@@ -1,12 +1,29 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
-import { mockBranches } from '../data/mockData';
+import { fetchBranches } from '../api/branchApi';
 import type { RootNavigation } from '../navigation/types';
 import { userSession } from '../state/userSession';
 
 export function ProfileTabScreen({ navigation }: { navigation: RootNavigation }) {
-  const branches = mockBranches();
-  const preferred = branches.find((b) => b.id === userSession.preferredBranchId)?.name ?? 'Not set';
+  const [branchNames, setBranchNames] = useState<{ id: number; name: string }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await fetchBranches();
+        if (!cancelled) setBranchNames(list.map((b) => ({ id: b.id, name: b.name })));
+      } catch {
+        if (!cancelled) setBranchNames([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const preferred =
+    branchNames.find((b) => b.id === userSession.preferredBranchId)?.name ?? 'Not set';
 
   return (
     <ScrollView contentContainerStyle={styles.pad}>

@@ -1,7 +1,16 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { mockTimeSlots } from '../data/mockData';
+import { fetchBranchSlots, type BranchTimeSlotRow } from '../api/branchApi';
+import { createBooking } from '../api/bookingApi';
 import type { RootStackParamList } from '../navigation/types';
 import { userSession } from '../state/userSession';
 
@@ -11,29 +20,80 @@ const SERVICES = ['General Banking', 'Card Services', 'Wealth Management'];
 
 export function SlotBookingScreen({ route, navigation }: Props) {
   const { branch } = route.params;
-  const slots = useMemo(() => mockTimeSlots(), []);
+  const [slots, setSlots] = useState<BranchTimeSlotRow[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(true);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
   const [service, setService] = useState(SERVICES[0]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadSlots = useCallback(async () => {
+    setSlotsError(null);
+    setLoadingSlots(true);
+    try {
+      const rows = await fetchBranchSlots(branch.id);
+      setSlots(rows);
+    } catch (e) {
+      setSlotsError(e instanceof Error ? e.message : String(e));
+      setSlots([]);
+    } finally {
+      setLoadingSlots(false);
+    }
+  }, [branch.id]);
+
+  useEffect(() => {
+    loadSlots();
+  }, [loadSlots]);
 
   const availableCount = slots.filter((s) => s.booked < s.capacity).length;
 
-  const confirm = () => {
+  const confirm = async () => {
     if (!selectedSlot) return;
-    const n = Date.now() % 200;
-    const queueNumber = `Q-${n + 101}`;
-    userSession.activeTicket = {
-      branchName: branch.name,
-      serviceName: service,
-      slotLabel: selectedSlot,
-      queueNumber,
-    };
-    navigation.navigate('QueueMonitoring', { ticket: userSession.activeTicket });
+    const token = userSession.token;
+    if (!token) {
+      Alert.alert('Sign in required', 'Please log in to reserve a queue ticket.', [
+        { text: 'OK', onPress: () => navigation.navigate('Auth') },
+      ]);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await createBooking(token, {
+        branchId: branch.id,
+        serviceType: service,
+        timeSlotLabel: selectedSlot,
+      });
+      userSession.activeTicket = {
+        ticketId: res.ticketId,
+        branchId: res.branchId,
+        branchName: res.branchName,
+        serviceName: res.serviceType,
+        slotLabel: res.timeSlotLabel,
+        queueNumber: res.queueLabel,
+      };
+      navigation.navigate('QueueMonitoring', { ticket: userSession.activeTicket });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      Alert.alert('Booking failed', msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <ScrollView contentContainerStyle={styles.pad}>
       <Text style={styles.title}>Reserve Queue Ticket</Text>
       <Text style={styles.branch}>{branch.name}</Text>
+
+      {loadingSlots ? (
+        <View style={styles.loadingRow}>
+          <ActivityIndicator />
+          <Text style={styles.muted}> Loading time slots…</Text>
+        </View>
+      ) : null}
+
+      {slotsError ? <Text style={styles.err}>{slotsError}</Text> : null}
 
       <Text style={styles.label}>Select Service</Text>
       <View style={styles.row}>
@@ -71,7 +131,7 @@ export function SlotBookingScreen({ route, navigation }: Props) {
                 style={[styles.selectChip, sel && styles.selectChipOn]}
                 onPress={() => setSelectedSlot(slot.label)}
               >
-                <Text>{sel ? 'Selected' : 'Select'}</Text>
+                <Text style={sel ? styles.selectOn : undefined}>{sel ? 'Selected' : 'Select'}</Text>
               </Pressable>
             )}
           </View>
@@ -79,11 +139,13 @@ export function SlotBookingScreen({ route, navigation }: Props) {
       })}
 
       <Pressable
-        style={[styles.confirm, !selectedSlot && styles.confirmOff]}
+        style={[styles.confirm, (!selectedSlot || submitting) && styles.confirmOff]}
         onPress={confirm}
-        disabled={!selectedSlot}
+        disabled={!selectedSlot || submitting}
       >
-        <Text style={styles.confirmText}>Confirm Reservation</Text>
+        <Text style={styles.confirmText}>
+          {submitting ? 'Confirming…' : 'Confirm Reservation'}
+        </Text>
       </Pressable>
     </ScrollView>
   );
@@ -91,6 +153,8 @@ export function SlotBookingScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   pad: { padding: 16, paddingBottom: 40 },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  err: { color: '#b00020', marginBottom: 8 },
   title: { fontSize: 18, fontWeight: '600', marginBottom: 4 },
   branch: { color: '#666', marginBottom: 16 },
   label: { fontWeight: '600', marginBottom: 8 },
@@ -125,6 +189,7 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
   },
   selectChipOn: { backgroundColor: '#3F51B5', borderColor: '#3F51B5' },
+  selectOn: { color: '#fff', fontWeight: '600' },
   confirm: {
     marginTop: 16,
     backgroundColor: '#3F51B5',
