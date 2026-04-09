@@ -36,6 +36,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<BranchTimeSlot>()
+            .Property(s => s.Label)
+            .HasMaxLength(450);
+
+        modelBuilder.Entity<BranchTimeSlot>()
             .HasIndex(s => new { s.BranchId, s.Label })
             .IsUnique();
     }

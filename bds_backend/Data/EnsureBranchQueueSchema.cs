@@ -29,13 +29,25 @@ public static class EnsureBranchQueueSchema
             END
             """);
 
+        // nvarchar(max) cannot be used in index keys in SQL Server; EF uses 450 for indexed strings.
+        db.Database.ExecuteSqlRaw("""
+            IF OBJECT_ID(N'BranchTimeSlots', N'U') IS NOT NULL
+            AND NOT EXISTS (
+                SELECT 1 FROM sys.indexes i
+                WHERE i.object_id = OBJECT_ID(N'BranchTimeSlots')
+                  AND i.name = N'IX_BranchTimeSlots_BranchId_Label')
+            BEGIN
+                DROP TABLE [BranchTimeSlots];
+            END
+            """);
+
         db.Database.ExecuteSqlRaw("""
             IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'BranchTimeSlots')
             BEGIN
                 CREATE TABLE [BranchTimeSlots] (
                     [Id] int NOT NULL IDENTITY,
                     [BranchId] int NOT NULL,
-                    [Label] nvarchar(max) NOT NULL,
+                    [Label] nvarchar(450) NOT NULL,
                     [Capacity] int NOT NULL,
                     [BookedCount] int NOT NULL,
                     CONSTRAINT [PK_BranchTimeSlots] PRIMARY KEY ([Id]),
