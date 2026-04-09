@@ -1,4 +1,4 @@
-import { getAuthBaseUrl } from '../config/apiBaseUrl';
+import { getAuthBaseUrl, getBackendBaseUrl } from '../config/apiBaseUrl';
 
 const TIMEOUT_MS = 20_000;
 
@@ -37,6 +37,24 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
   const id = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
     return await fetch(url, { ...init, signal: ctrl.signal });
+  } catch (e) {
+    const isAbort =
+      e instanceof Error &&
+      (e.name === 'AbortError' || /aborted/i.test(e.message));
+    if (isAbort) {
+      throw new Error(
+        `Could not reach the server within ${TIMEOUT_MS / 1000}s (request aborted). ` +
+          `Start bds_backend on port 5062 and check the app can open: ${getBackendBaseUrl()} ` +
+          `(Android emulator: use 10.0.2.2; physical phone: set EXPO_PUBLIC_BACKEND_BASE_URL to your PC IP).`
+      );
+    }
+    if (e instanceof TypeError || (e instanceof Error && /network/i.test(e.message))) {
+      throw new Error(
+        `Network error — is bds_backend running? Try in a browser: ${getBackendBaseUrl()}/swagger ` +
+          `(Auth uses ${getAuthBaseUrl()}).`
+      );
+    }
+    throw e;
   } finally {
     clearTimeout(id);
   }
