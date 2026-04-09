@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "BDS Smart Branch",
+    "slug": "bds-mobile-rn",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#E8EAF6"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bds.smartbranch"
+    },
+    "android": {
+      "package": "com.bds.smartbranch"
+    }
+  }
+}

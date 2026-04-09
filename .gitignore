@@ -1,0 +1,45 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+*.user
+
+# Dependencies & caches
+**/node_modules/
+**/.expo/
+
+# .NET
+**/bin/
+**/obj/
+*.user
+*.suo
+
+# Flutter / Dart
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/build/
+**/ios/Pods/
+**/ios/.symlinks/
+**/android/.gradle/
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+
+# Python / ML (regenerate locally)
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/venv/
+bds_ml/models/*.joblib
+
+# Logs & env secrets (add your own .env — never commit real passwords)
+*.log
+.env
+.env.*
+!.env.example
+
+# Staff dashboard build
+bds_staff_dashboard/dist/

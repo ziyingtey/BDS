@@ -1,0 +1,6 @@
+@bds_backend_HostAddress = http://localhost:5062
+
+GET {{bds_backend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
