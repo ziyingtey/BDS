@@ -4,6 +4,7 @@
     "slug": "bds-mobile-rn",
     "version": "1.0.0",
     "orientation": "portrait",
+    "newArchEnabled": true,
     "userInterfaceStyle": "light",
     "splash": {
       "backgroundColor": "#E8EAF6"
