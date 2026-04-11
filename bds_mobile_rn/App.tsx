@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './src/navigation/types';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { MainShellScreen } from './src/screens/MainShellScreen';
+import { BranchMapScreen } from './src/screens/BranchMapScreen';
 import { BranchDiscoveryScreen } from './src/screens/BranchDiscoveryScreen';
 import { SlotBookingScreen } from './src/screens/SlotBookingScreen';
 import { QueueMonitoringScreen } from './src/screens/QueueMonitoringScreen';
@@ -29,6 +30,11 @@ export default function App() {
           name="MainTabs"
           component={MainShellScreen}
           options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="BranchMap"
+          component={BranchMapScreen}
+          options={{ title: 'Nearest branch map' }}
         />
         <Stack.Screen
           name="BranchDiscovery"

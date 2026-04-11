@@ -4,6 +4,7 @@ import type { Branch, QueueTicket } from '../types/models';
 export type RootStackParamList = {
   Auth: undefined;
   MainTabs: undefined;
+  BranchMap: undefined;
   BranchDiscovery: undefined;
   Profile: undefined;
   SlotBooking: { branch: Branch };

@@ -11,6 +11,13 @@ export function HomeTabScreen({ navigation }: { navigation: RootNavigation }) {
         Discover branches, view smart recommendations, and reserve tickets.
       </Text>
       <Pressable
+        style={[styles.card, styles.cardSpacing]}
+        onPress={() => navigation.navigate('BranchMap')}
+      >
+        <Text style={styles.cardTitle}>Nearest branch map</Text>
+        <Text style={styles.cardSub}>GPS, map, and closest branch (Haversine)</Text>
+      </Pressable>
+      <Pressable
         style={styles.card}
         onPress={() => navigation.navigate('BranchDiscovery')}
       >
@@ -32,6 +39,7 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#fafafa',
   },
+  cardSpacing: { marginBottom: 12 },
   cardTitle: { fontSize: 16, fontWeight: '600' },
   cardSub: { color: '#666', marginTop: 4 },
 });
