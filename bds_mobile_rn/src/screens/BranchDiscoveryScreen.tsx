@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import * as Location from 'expo-location';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { fetchBranches, type BranchListItem } from '../api/branchApi';
 import type { RootStackParamList } from '../navigation/types';
@@ -37,10 +38,24 @@ function mapBranch(b: BranchListItem): Branch {
   };
 }
 
+function formatGeocodedPlace(a: Location.LocationGeocodedAddress): string {
+  const chunks = [a.city, a.district, a.subregion, a.region].filter(
+    (x): x is string => typeof x === 'string' && x.length > 0
+  );
+  const uniq = [...new Set(chunks)];
+  if (uniq.length > 0) return uniq.join(' · ');
+  if (a.name) return a.name;
+  return '';
+}
+
 export function BranchDiscoveryScreen({ navigation }: Props) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [detectedLabel, setDetectedLabel] = useState<string | null>(null);
+  const [detectedCoords, setDetectedCoords] = useState<string | null>(null);
+  const [locationLoading, setLocationLoading] = useState(true);
+  const [locationHint, setLocationHint] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -60,12 +75,59 @@ export function BranchDiscoveryScreen({ navigation }: Props) {
     load();
   }, [load]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLocationLoading(true);
+      setLocationHint(null);
+      setDetectedLabel(null);
+      setDetectedCoords(null);
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (cancelled) return;
+        if (status !== Location.PermissionStatus.GRANTED) {
+          setLocationHint('Allow location to show where you are (e.g. Labis when you are there).');
+          return;
+        }
+        const servicesOn = await Location.hasServicesEnabledAsync();
+        if (!servicesOn) {
+          setLocationHint('Turn on GPS/Location in system settings.');
+          return;
+        }
+        let pos =
+          (await Location.getLastKnownPositionAsync({
+            maxAge: 120_000,
+            requiredAccuracy: 500,
+          })) ?? (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
+        if (cancelled) return;
+        const { latitude, longitude } = pos.coords;
+        setDetectedCoords(`${latitude.toFixed(5)}°, ${longitude.toFixed(5)}°`);
+        try {
+          const places = await Location.reverseGeocodeAsync({ latitude, longitude });
+          const first = places[0];
+          const place = first ? formatGeocodedPlace(first) : '';
+          setDetectedLabel(place || 'Location acquired');
+        } catch {
+          setDetectedLabel('Location acquired');
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setLocationHint(e instanceof Error ? e.message : String(e));
+        }
+      } finally {
+        if (!cancelled) setLocationLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const waitFor = (b: Branch) => ({
     mins: Math.round(b.estimatedWaitMinutes),
     label: waitLabelFromSource(b.estimateSource),
   });
 
-  const currentArea = 'Near Mid Valley';
   const candidates = useMemo(
     () => branches.filter((b) => b.canBook),
     [branches]
@@ -84,10 +146,25 @@ export function BranchDiscoveryScreen({ navigation }: Props) {
   return (
     <ScrollView contentContainerStyle={styles.pad}>
       <Text style={styles.hi}>Hi, {userSession.userName}</Text>
-      <Text style={styles.muted}>Detected location (demo label):</Text>
+      <Text style={styles.muted}>Your location (from device GPS):</Text>
       <View style={styles.chip}>
-        <Text>{currentArea}</Text>
+        {locationLoading ? (
+          <View style={styles.chipLoadingRow}>
+            <ActivityIndicator size="small" />
+            <Text style={styles.chipText}> Detecting…</Text>
+          </View>
+        ) : locationHint ? (
+          <Text style={styles.chipText}>{locationHint}</Text>
+        ) : (
+          <>
+            <Text style={styles.chipTitle}>{detectedLabel ?? 'Unknown'}</Text>
+            {detectedCoords ? <Text style={styles.chipCoords}>{detectedCoords}</Text> : null}
+          </>
+        )}
       </View>
+      <Text style={styles.locationNote}>
+        Branch list distances (km) still come from the server, not this GPS read.
+      </Text>
 
       {loading ? (
         <View style={styles.loadingRow}>
@@ -187,10 +264,16 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     backgroundColor: '#eee',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 16,
-    marginBottom: 16,
+    marginBottom: 8,
+    maxWidth: '100%',
   },
+  chipLoadingRow: { flexDirection: 'row', alignItems: 'center' },
+  chipText: { color: '#333', fontSize: 14 },
+  chipTitle: { fontWeight: '600', fontSize: 14, color: '#111' },
+  chipCoords: { fontSize: 12, color: '#555', marginTop: 4 },
+  locationNote: { fontSize: 11, color: '#888', marginBottom: 12, fontStyle: 'italic' },
   card: {
     borderWidth: 1,
     borderColor: '#e0e0e0',
