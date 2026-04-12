@@ -4,6 +4,11 @@ public class BranchListItemDto
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string State { get; set; } = string.Empty;
+    public string? Address { get; set; }
+    public string? Phone { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
     public double DistanceKm { get; set; }
     public string CrowdLevel { get; set; } = "Low";
     public int SlotCapacity { get; set; }

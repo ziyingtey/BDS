@@ -13,6 +13,7 @@ import * as Location from 'expo-location';
 import type { RootStackParamList } from '../navigation/types';
 import { branchPins, type BranchPin } from '../data/branches';
 import { getDistance } from '../utils/distance';
+import { fetchBranches } from '../api/branchApi';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BranchMap'>;
 
@@ -36,10 +37,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   });
 }
 
-function findNearestBranch(userLat: number, userLng: number): BranchPin | null {
+function findNearestBranch(userLat: number, userLng: number, pins: BranchPin[]): BranchPin | null {
   let minDistance = Infinity;
   let closest: BranchPin | null = null;
-  for (const branch of branchPins) {
+  for (const branch of pins) {
     const distance = getDistance(userLat, userLng, branch.latitude, branch.longitude);
     if (distance < minDistance) {
       minDistance = distance;
@@ -49,10 +50,13 @@ function findNearestBranch(userLat: number, userLng: number): BranchPin | null {
   return closest;
 }
 
-/** Map starts over sample branches so the map is never a blank full-screen loader. */
-function defaultRegion(): Region {
-  const lat = branchPins.reduce((s, b) => s + b.latitude, 0) / branchPins.length;
-  const lon = branchPins.reduce((s, b) => s + b.longitude, 0) / branchPins.length;
+/** Map starts over branch pins so the map is never a blank full-screen loader. */
+function defaultRegionFromPins(pins: BranchPin[]): Region {
+  if (pins.length === 0) {
+    return { latitude: 3.14, longitude: 101.69, latitudeDelta: 0.35, longitudeDelta: 0.35 };
+  }
+  const lat = pins.reduce((s, b) => s + b.latitude, 0) / pins.length;
+  const lon = pins.reduce((s, b) => s + b.longitude, 0) / pins.length;
   return {
     latitude: lat,
     longitude: lon,
@@ -63,7 +67,8 @@ function defaultRegion(): Region {
 
 export function BranchMapScreen(_props: Props) {
   const mapRef = useRef<MapView>(null);
-  const initialMapRegion = useMemo(() => defaultRegion(), []);
+  const [mapPins, setMapPins] = useState<BranchPin[]>(branchPins);
+  const initialMapRegion = useMemo(() => defaultRegionFromPins(mapPins), [mapPins]);
 
   const [location, setLocation] = useState<LatLng | null>(null);
   const [nearestBranch, setNearestBranch] = useState<BranchPin | null>(null);
@@ -75,7 +80,6 @@ export function BranchMapScreen(_props: Props) {
 
   const applyPosition = useCallback((latitude: number, longitude: number) => {
     setLocation({ latitude, longitude });
-    setNearestBranch(findNearestBranch(latitude, longitude));
     mapRef.current?.animateToRegion(
       {
         latitude,
@@ -86,6 +90,30 @@ export function BranchMapScreen(_props: Props) {
       600
     );
   }, []);
+
+  useEffect(() => {
+    fetchBranches()
+      .then((list) => {
+        const fromApi = list
+          .filter((b) => b.latitude != null && b.longitude != null)
+          .map((b) => ({
+            id: b.id,
+            name: b.name,
+            latitude: b.latitude as number,
+            longitude: b.longitude as number,
+          }));
+        if (fromApi.length > 0) setMapPins(fromApi);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!location) {
+      setNearestBranch(null);
+      return;
+    }
+    setNearestBranch(findNearestBranch(location.latitude, location.longitude, mapPins));
+  }, [location, mapPins]);
 
   const loadLocation = useCallback(async () => {
     setLocationError(null);
@@ -177,7 +205,7 @@ export function BranchMapScreen(_props: Props) {
         {location ? (
           <Marker coordinate={location} title="You are here" pinColor="#1565C0" />
         ) : null}
-        {branchPins.map((branch) => (
+        {mapPins.map((branch) => (
           <Marker
             key={branch.id}
             coordinate={{ latitude: branch.latitude, longitude: branch.longitude }}

@@ -1,4 +1,7 @@
-/** Static branch pins for map + local nearest-branch fallback. Replace with real Public Bank coordinates as needed. */
+/**
+ * Fallback pins if the API is offline. The map prefers GET /api/branches coordinates when available.
+ * Import a full directory from the official PBE branch locator (manual / admin), not by scraping.
+ */
 export type BranchPin = {
   id: number;
   name: string;

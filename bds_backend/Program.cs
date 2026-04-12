@@ -55,6 +55,7 @@ using (var scope = app.Services.CreateScope())
     db.Database.EnsureCreated();
     EnsureBranchQueueSchema.ApplyIfNeeded(db);
     DbSeed.SeedBranches(db);
+    DbSeed.SeedBranchDirectoryExpansion(db);
 }
 
 if (app.Environment.IsDevelopment())

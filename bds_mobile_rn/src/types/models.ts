@@ -2,6 +2,11 @@
 export type Branch = {
   id: number;
   name: string;
+  state: string;
+  address: string | null;
+  phone: string | null;
+  latitude: number | null;
+  longitude: number | null;
   crowdLevel: 'Low' | 'Moderate' | 'High';
   distanceKm: number;
   slotCapacity: number;

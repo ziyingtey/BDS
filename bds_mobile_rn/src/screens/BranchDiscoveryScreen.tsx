@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import * as Location from 'expo-location';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -14,6 +15,7 @@ import type { RootStackParamList } from '../navigation/types';
 import type { Branch } from '../types/models';
 import { waitLabelFromSource } from '../types/models';
 import { userSession } from '../state/userSession';
+import { MALAYSIAN_STATES } from '../data/malaysianStates';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BranchDiscovery'>;
 
@@ -24,6 +26,11 @@ function mapBranch(b: BranchListItem): Branch {
   return {
     id: b.id,
     name: b.name,
+    state: b.state ?? '',
+    address: b.address ?? null,
+    phone: b.phone ?? null,
+    latitude: b.latitude ?? null,
+    longitude: b.longitude ?? null,
     distanceKm: b.distanceKm,
     crowdLevel,
     slotCapacity: b.slotCapacity,
@@ -56,12 +63,18 @@ export function BranchDiscoveryScreen({ navigation }: Props) {
   const [detectedCoords, setDetectedCoords] = useState<string | null>(null);
   const [locationLoading, setLocationLoading] = useState(true);
   const [locationHint, setLocationHint] = useState<string | null>(null);
+  const [userGps, setUserGps] = useState<{ lat: number; lng: number } | null>(null);
+  const [stateFilter, setStateFilter] = useState<string | undefined>(undefined);
 
   const load = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
-      const raw = await fetchBranches();
+      const raw = await fetchBranches({
+        state: stateFilter,
+        userLat: userGps?.lat,
+        userLng: userGps?.lng,
+      });
       setBranches(raw.map(mapBranch));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -69,7 +82,7 @@ export function BranchDiscoveryScreen({ navigation }: Props) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [stateFilter, userGps]);
 
   useEffect(() => {
     load();
@@ -101,6 +114,7 @@ export function BranchDiscoveryScreen({ navigation }: Props) {
           })) ?? (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
         if (cancelled) return;
         const { latitude, longitude } = pos.coords;
+        setUserGps({ lat: latitude, lng: longitude });
         setDetectedCoords(`${latitude.toFixed(5)}°, ${longitude.toFixed(5)}°`);
         try {
           const places = await Location.reverseGeocodeAsync({ latitude, longitude });
@@ -163,8 +177,35 @@ export function BranchDiscoveryScreen({ navigation }: Props) {
         )}
       </View>
       <Text style={styles.locationNote}>
-        Branch list distances (km) still come from the server, not this GPS read.
+        Distances (km) use your GPS when permission is on: the app sends coordinates to the server so
+        distanceKm is recalculated (Haversine). Filter by state like the official branch locator.
       </Text>
+      <Pressable
+        onPress={() =>
+          Linking.openURL('https://www.pbebank.com/en/branch-locator/')
+        }
+      >
+        <Text style={styles.officialLink}>Official PBE branch locator (reference for real addresses)</Text>
+      </Pressable>
+
+      <Text style={styles.filterLabel}>State / territory</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stateScroll}>
+        <Pressable
+          style={[styles.stateChip, !stateFilter && styles.stateChipOn]}
+          onPress={() => setStateFilter(undefined)}
+        >
+          <Text style={[styles.stateChipText, !stateFilter && styles.stateChipTextOn]}>All</Text>
+        </Pressable>
+        {MALAYSIAN_STATES.map((s) => (
+          <Pressable
+            key={s}
+            style={[styles.stateChip, stateFilter === s && styles.stateChipOn]}
+            onPress={() => setStateFilter(s)}
+          >
+            <Text style={[styles.stateChipText, stateFilter === s && styles.stateChipTextOn]}>{s}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
 
       {loading ? (
         <View style={styles.loadingRow}>
@@ -191,7 +232,9 @@ export function BranchDiscoveryScreen({ navigation }: Props) {
         </View>
       ) : null}
 
-      <Text style={styles.section}>All Branches</Text>
+      <Text style={styles.section}>
+        Branches{stateFilter ? ` — ${stateFilter}` : ' — all states'}
+      </Text>
       {branches.map((branch) => (
         <BranchCard
           key={branch.id}
@@ -232,7 +275,10 @@ function BranchCard({
           <Text style={styles.badgeText}>{badge}</Text>
         </View>
       </View>
+      {branch.address ? <Text style={styles.addr}>{branch.address}</Text> : null}
+      {branch.phone ? <Text style={styles.phone}>{branch.phone}</Text> : null}
       <Text style={styles.muted}>
+        {branch.state ? `${branch.state} • ` : ''}
         {branch.distanceKm.toFixed(1)} km • Waiting: {branch.waitingCount} • Est. wait ~{waitInfo.mins}{' '}
         min ({waitInfo.label})
       </Text>
@@ -273,7 +319,27 @@ const styles = StyleSheet.create({
   chipText: { color: '#333', fontSize: 14 },
   chipTitle: { fontWeight: '600', fontSize: 14, color: '#111' },
   chipCoords: { fontSize: 12, color: '#555', marginTop: 4 },
-  locationNote: { fontSize: 11, color: '#888', marginBottom: 12, fontStyle: 'italic' },
+  locationNote: { fontSize: 11, color: '#888', marginBottom: 8, fontStyle: 'italic' },
+  officialLink: {
+    fontSize: 12,
+    color: '#3F51B5',
+    textDecorationLine: 'underline',
+    marginBottom: 14,
+  },
+  filterLabel: { fontSize: 13, fontWeight: '600', marginBottom: 8, color: '#333' },
+  stateScroll: { marginBottom: 14, maxHeight: 40 },
+  stateChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#eee',
+    marginRight: 8,
+  },
+  stateChipOn: { backgroundColor: '#3F51B5' },
+  stateChipText: { fontSize: 13, color: '#444' },
+  stateChipTextOn: { color: '#fff', fontWeight: '600' },
+  addr: { fontSize: 13, color: '#444', marginBottom: 4 },
+  phone: { fontSize: 13, color: '#555', marginBottom: 4 },
   card: {
     borderWidth: 1,
     borderColor: '#e0e0e0',

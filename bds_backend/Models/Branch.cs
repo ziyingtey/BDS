@@ -7,6 +7,12 @@ public class Branch
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    /// <summary>Malaysian state / territory (same labels as official branch locator filters).</summary>
+    public string State { get; set; } = string.Empty;
+    public string? Address { get; set; }
+    public string? Phone { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
     public double DistanceKm { get; set; }
     /// <summary>Low | Moderate | High</summary>
     public string CrowdLevel { get; set; } = "Low";

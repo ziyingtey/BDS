@@ -1,5 +1,6 @@
 using bds_backend.Data;
 using bds_backend.Dtos;
+using bds_backend.Geo;
 using bds_backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,13 +15,30 @@ public class BranchesController(
     WaitPredictionService waitPrediction) : ControllerBase
 {
     /// <summary>List branches with server-side wait estimates (0 min when nobody is waiting).</summary>
+    /// <param name="state">Optional: filter by Malaysian state label (same wording as official PBE branch locator).</param>
+    /// <param name="userLat">Optional: user latitude for live distanceKm (Haversine) when branch has coordinates.</param>
+    /// <param name="userLng">Optional: user longitude for live distanceKm.</param>
     [AllowAnonymous]
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<BranchListItemDto>>> List(CancellationToken ct)
+    public async Task<ActionResult<IReadOnlyList<BranchListItemDto>>> List(
+        [FromQuery] string? state,
+        [FromQuery] double? userLat,
+        [FromQuery] double? userLng,
+        CancellationToken ct)
     {
-        var branches = await db.Branches.AsNoTracking().OrderBy(b => b.Id).ToListAsync(ct);
+        var q = db.Branches.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(state))
+        {
+            var norm = state.Trim();
+            q = q.Where(b => b.State == norm);
+        }
+
+        var branches = await q.OrderBy(b => b.State).ThenBy(b => b.Name).ToListAsync(ct);
         var now = DateTime.UtcNow;
         var list = new List<BranchListItemDto>();
+
+        var haveUser = userLat is not null && userLng is not null
+                       && double.IsFinite(userLat.Value) && double.IsFinite(userLng.Value);
 
         foreach (var b in branches)
         {
@@ -42,11 +60,24 @@ public class BranchesController(
                 CountersOpen = 4,
             }, ct);
 
+            var distanceKm = b.DistanceKm;
+            if (haveUser && b.Latitude is not null && b.Longitude is not null)
+            {
+                distanceKm = GeoDistance.HaversineKm(
+                    userLat!.Value, userLng!.Value,
+                    b.Latitude.Value, b.Longitude.Value);
+            }
+
             list.Add(new BranchListItemDto
             {
                 Id = b.Id,
                 Name = b.Name,
-                DistanceKm = b.DistanceKm,
+                State = b.State,
+                Address = b.Address,
+                Phone = b.Phone,
+                Latitude = b.Latitude,
+                Longitude = b.Longitude,
+                DistanceKm = distanceKm,
                 CrowdLevel = b.CrowdLevel,
                 SlotCapacity = b.SlotCapacity,
                 SlotBooked = b.SlotBooked,

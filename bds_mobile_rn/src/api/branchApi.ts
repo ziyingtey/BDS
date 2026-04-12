@@ -3,6 +3,12 @@ import { getBackendBaseUrl } from '../config/apiBaseUrl';
 export type BranchListItem = {
   id: number;
   name: string;
+  /** Present after backend branch-directory update. */
+  state?: string;
+  address?: string | null;
+  phone?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   distanceKm: number;
   crowdLevel: string;
   slotCapacity: number;
@@ -22,9 +28,21 @@ export type BranchTimeSlotRow = {
   booked: number;
 };
 
-export async function fetchBranches(): Promise<BranchListItem[]> {
+export type FetchBranchesParams = {
+  /** Exact state label, e.g. "Johor" (same as PBE branch locator). */
+  state?: string;
+  userLat?: number;
+  userLng?: number;
+};
+
+export async function fetchBranches(params?: FetchBranchesParams): Promise<BranchListItem[]> {
   const base = getBackendBaseUrl();
-  const res = await fetch(`${base}/api/branches`, {
+  const q = new URLSearchParams();
+  if (params?.state) q.set('state', params.state);
+  if (params?.userLat != null) q.set('userLat', String(params.userLat));
+  if (params?.userLng != null) q.set('userLng', String(params.userLng));
+  const qs = q.toString();
+  const res = await fetch(`${base}/api/branches${qs ? `?${qs}` : ''}`, {
     headers: { Accept: 'application/json' },
   });
   if (!res.ok) {

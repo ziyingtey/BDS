@@ -82,5 +82,50 @@ public static class EnsureBranchQueueSchema
                 CREATE INDEX [IX_QueueTickets_BranchId] ON [QueueTickets] ([BranchId]);
             END
             """);
+
+        ApplyBranchDirectoryColumns(db);
+    }
+
+    /// <summary>Adds state/address/geo columns for branch-locator style listings (idempotent for older DBs).</summary>
+    private static void ApplyBranchDirectoryColumns(AppDbContext db)
+    {
+        db.Database.ExecuteSqlRaw("""
+            IF COL_LENGTH(N'Branches', N'State') IS NULL
+            ALTER TABLE [Branches] ADD [State] nvarchar(100) NOT NULL CONSTRAINT [DF_Branches_State] DEFAULT N'';
+            """);
+        db.Database.ExecuteSqlRaw("""
+            IF COL_LENGTH(N'Branches', N'Address') IS NULL
+            ALTER TABLE [Branches] ADD [Address] nvarchar(500) NULL;
+            """);
+        db.Database.ExecuteSqlRaw("""
+            IF COL_LENGTH(N'Branches', N'Phone') IS NULL
+            ALTER TABLE [Branches] ADD [Phone] nvarchar(80) NULL;
+            """);
+        db.Database.ExecuteSqlRaw("""
+            IF COL_LENGTH(N'Branches', N'Latitude') IS NULL
+            ALTER TABLE [Branches] ADD [Latitude] float NULL;
+            """);
+        db.Database.ExecuteSqlRaw("""
+            IF COL_LENGTH(N'Branches', N'Longitude') IS NULL
+            ALTER TABLE [Branches] ADD [Longitude] float NULL;
+            """);
+
+        // Backfill older demo rows so GPS / state filters work without reseeding.
+        db.Database.ExecuteSqlRaw("""
+            UPDATE [Branches] SET [State]=N'Kuala Lumpur',[Address]=N'KL Sentral (demo — replace from official PBE branch data)',[Phone]=N'03-0000 0001',[Latitude]=3.1344,[Longitude]=101.6862
+            WHERE [Name]=N'BDS KL Sentral' AND [Latitude] IS NULL;
+            """);
+        db.Database.ExecuteSqlRaw("""
+            UPDATE [Branches] SET [State]=N'Kuala Lumpur',[Address]=N'Mid Valley (demo)',[Phone]=N'03-0000 0002',[Latitude]=3.1187,[Longitude]=101.6765
+            WHERE [Name]=N'BDS Mid Valley' AND [Latitude] IS NULL;
+            """);
+        db.Database.ExecuteSqlRaw("""
+            UPDATE [Branches] SET [State]=N'Kuala Lumpur',[Address]=N'Bangsar (demo)',[Phone]=N'03-0000 0003',[Latitude]=3.1291,[Longitude]=101.6711
+            WHERE [Name]=N'BDS Bangsar' AND [Latitude] IS NULL;
+            """);
+        db.Database.ExecuteSqlRaw("""
+            UPDATE [Branches] SET [State]=N'Selangor',[Address]=N'Damansara (demo)',[Phone]=N'03-0000 0004',[Latitude]=3.1466,[Longitude]=101.6292
+            WHERE [Name]=N'BDS Damansara' AND [Latitude] IS NULL;
+            """);
     }
 }
