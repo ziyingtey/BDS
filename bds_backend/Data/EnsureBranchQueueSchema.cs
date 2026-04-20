@@ -84,6 +84,29 @@ public static class EnsureBranchQueueSchema
             """);
 
         ApplyBranchDirectoryColumns(db);
+        ApplyServiceCountersTable(db);
+    }
+
+    private static void ApplyServiceCountersTable(AppDbContext db)
+    {
+        db.Database.ExecuteSqlRaw("""
+            IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'ServiceCounters')
+            BEGIN
+                CREATE TABLE [ServiceCounters] (
+                    [Id] int NOT NULL IDENTITY,
+                    [BranchId] int NOT NULL,
+                    [Label] nvarchar(80) NOT NULL,
+                    [ServiceType] nvarchar(120) NOT NULL,
+                    [IsOpen] bit NOT NULL CONSTRAINT [DF_ServiceCounters_IsOpen] DEFAULT 1,
+                    [ClosedReason] nvarchar(200) NULL,
+                    CONSTRAINT [PK_ServiceCounters] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_ServiceCounters_Branches_BranchId] FOREIGN KEY ([BranchId])
+                        REFERENCES [Branches] ([Id]) ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX [IX_ServiceCounters_BranchId_Label]
+                    ON [ServiceCounters] ([BranchId], [Label]);
+            END
+            """);
     }
 
     /// <summary>Adds state/address/geo columns for branch-locator style listings (idempotent for older DBs).</summary>

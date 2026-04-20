@@ -20,10 +20,16 @@ builder.Services.AddHttpClient("WaitPrediction", client =>
 });
 builder.Services.AddScoped<bds_backend.Services.WaitPredictionService>();
 
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AppClients", policy =>
-        policy.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
+    {
+        if (corsOrigins is { Length: > 0 })
+            policy.WithOrigins(corsOrigins).AllowAnyHeader().AllowAnyMethod();
+        else
+            policy.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin();
+    });
 });
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "change-this-dev-key-to-long-secret";
@@ -52,10 +58,13 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var passwordService = scope.ServiceProvider.GetRequiredService<PasswordService>();
     db.Database.EnsureCreated();
     EnsureBranchQueueSchema.ApplyIfNeeded(db);
     DbSeed.SeedBranches(db);
     DbSeed.SeedBranchDirectoryExpansion(db);
+    DbSeed.EnsureSimulatorUser(db, passwordService);
+    DbSeed.SeedServiceCounters(db);
 }
 
 if (app.Environment.IsDevelopment())

@@ -1,4 +1,5 @@
 using bds_backend.Models;
+using bds_backend.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace bds_backend.Data;
@@ -119,7 +120,7 @@ public static class DbSeed
     }
 
     private static int[] bookedPatternForNewBranch(int id) =>
-        id % 4 switch
+        (id % 4) switch
         {
             1 => [8, 5, 7, 3, 8],
             2 => [8, 8, 8, 8, 8],
@@ -139,6 +140,56 @@ public static class DbSeed
                 BookedCount = bookedPattern[Math.Min(i, bookedPattern.Length - 1)],
             });
         }
+    }
+
+    /// <summary>Anonymous queue simulator uses this account (password: Simulator123! if you need JWT login later).</summary>
+    public static void EnsureSimulatorUser(AppDbContext db, PasswordService passwordService)
+    {
+        if (db.UserAccounts.Any(u => u.Email == "simulator@bds.demo")) return;
+
+        var (hash, salt) = passwordService.HashPassword("Simulator123!");
+        db.UserAccounts.Add(new UserAccount
+        {
+            FullName = "Queue Simulator",
+            Email = "simulator@bds.demo",
+            PasswordHash = hash,
+            PasswordSalt = salt,
+            Role = "Simulator",
+        });
+        db.SaveChanges();
+    }
+
+    public static void SeedServiceCounters(AppDbContext db)
+    {
+        if (db.ServiceCounters.Any()) return;
+
+        foreach (var b in db.Branches.AsNoTracking().OrderBy(x => x.Id).ToList())
+        {
+            db.ServiceCounters.Add(new ServiceCounter
+            {
+                BranchId = b.Id,
+                Label = "C1",
+                ServiceType = "General Banking",
+                IsOpen = true,
+            });
+            db.ServiceCounters.Add(new ServiceCounter
+            {
+                BranchId = b.Id,
+                Label = "C2",
+                ServiceType = "Card Services",
+                IsOpen = true,
+            });
+            db.ServiceCounters.Add(new ServiceCounter
+            {
+                BranchId = b.Id,
+                Label = "C3",
+                ServiceType = "Wealth Management",
+                IsOpen = false,
+                ClosedReason = "Not staffed",
+            });
+        }
+
+        db.SaveChanges();
     }
 
     private sealed record DemoBranchSpec(
